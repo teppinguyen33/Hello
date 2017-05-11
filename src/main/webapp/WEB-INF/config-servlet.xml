@@ -9,6 +9,9 @@
 
 	<mvc:annotation-driven />
 
+    <!-- For error deploy heroku -->
+	<mvc:default-servlet-handler />
+
 	<!-- Scans within the base package of the application for @Component classes 
 		to configure as beans -->
 	<context:component-scan base-package="music.controllers" />
