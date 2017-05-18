@@ -9,7 +9,7 @@
 <body>
     <jsp:include page="./includes/searchPanel.jsp"></jsp:include>
     <h1>Result</h1>
-    ${keyword} -- ${numberOfResult} <br>
+    ${keyword} -- ${total} <br>
     <table>
         <th>#</th>
         <th>Name</th>
@@ -20,7 +20,7 @@
                 <td>${i.index + 1}</td>
                 <td><a href="<c:url value="/music/song/${song.id}" ></c:url>">${song.title}</a></td>
                 <td>${song.artist}</td>
-                <td>${song.numberOfListen}</td>
+                <td>${song.listen}</td>
             </tr>
         </c:forEach>
     </table>

@@ -12,6 +12,11 @@ import java.util.zip.GZIPOutputStream;
 
 public class Utilities {
 
+	/**
+	 * Check charset of array byte
+	 * @param bytes
+	 * @return
+	 */
 	public static String checkCharset(byte[] bytes) {
 		// Check charset of string response
 		org.mozilla.universalchardet.UniversalDetector detector = new org.mozilla.universalchardet.UniversalDetector(null);
@@ -22,6 +27,12 @@ public class Utilities {
 		return encoding;
 	}
 	
+	/**
+	 * Convert a string to array byte
+	 * @param string
+	 * @return
+	 * @throws IOException
+	 */
 	public static byte[] compress(String string) throws IOException {
 		if (string == null || "".equals(string)) {
 			return null;
@@ -33,6 +44,12 @@ public class Utilities {
 		return baos.toByteArray();
 	}
 	
+	/**
+	 * Convert a array byte to string, encode UTF-8
+	 * @param bytes
+	 * @return
+	 * @throws IOException
+	 */
 	public static String decompress(byte[] bytes) throws IOException {
 		String retString = "";
 		
@@ -49,4 +66,5 @@ public class Utilities {
 		
 		return retString;
 	}
+
 }

@@ -10,7 +10,7 @@ public class Song {
 	private String title;
 	private String log_data;
 	private String artist;
-	private String numberOfListen;
+	private String listen;
 
 	public String getId() {
 		return id;
@@ -76,12 +76,12 @@ public class Song {
 		this.artist = artist;
 	}
 
-	public String getNumberOfListen() {
-		return numberOfListen;
+	public String getListen() {
+		return listen;
 	}
 
-	public void setNumberOfListen(String numberOfListen) {
-		this.numberOfListen = numberOfListen;
+	public void setListen(String listen) {
+		this.listen = listen;
 	}
 
 }

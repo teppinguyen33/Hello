@@ -1,132 +1,135 @@
 package music.controllers;
 
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.List;
 
-import music.common.CallAPIGetMethod;
-import music.common.Utilities;
 import music.entities.Song;
 import music.entities.SongSearchParam;
 import music.enums.MusicMP3Enum;
 
-import org.apache.commons.httpclient.HttpException;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 
+import common.SystemException;
+
 @Controller
 public class SearchController {
-	private static final String SONG_SPLIT = "<a href=\"/bai-hat/";
-	private static final String KEYWORD_START = "<h2 class=\"title-main-item\"><span>";
-	private static final String KEYWORD_END = "</span></h2>";
-	private static final String RESULT_START = "<h3 class=\"title-sub\">";
-	private static final String RESULT_END = "</h3>";
-	private static final String ID = ".html";
-	private static final String NAME_START = "<h2 class=\"title-song ellipsis-2\">";
-	private static final String NAME_END = "</h2>";
-	private static final String ARTIST_START = "<h3 class=\"title-sub\">";
-	private static final String ARTIST_END = "</h3>";
-	private static final String LISTEN_START = "<span class=\"nu\">";
-	private static final String LISTEN_END = "</span>";
 
 	@RequestMapping(value = "/music/search", method = RequestMethod.GET)
 	public String searchSong(Model model,
-			@ModelAttribute("songSearchParam") SongSearchParam songSearchParam) {
+			@ModelAttribute("songSearchParam") SongSearchParam songSearchParam)
+			throws SystemException {
 
-		List<Song> listSong = null;
-		String keyword = null;
-		String numberOfResult = null;
+		// Request search
+		Document doc = requestSearch(songSearchParam.getQ());
 
-		try {
-			String param = "?q="
-					+ URLEncoder.encode(songSearchParam.getQ(), "UTF-8");
-
-			String url = MusicMP3Enum.HOST.getText()
-					+ MusicMP3Enum.SEARCH.getText() + param;
-
-			CallAPIGetMethod callAPI = new CallAPIGetMethod(url);
-			byte[] responseBody = callAPI.getResponseBody();
-
-			String responseString = Utilities.decompress(responseBody);
-
-			String[] rawSong = responseString.split(SONG_SPLIT);
-			int numberOfSong = rawSong.length;
-			if (numberOfSong > 1) {
-				listSong = new ArrayList<Song>();
-			}
-			String id = null;
-			String name = null;
-			String artist = null;
-			String numberOfListen = null;
-			int start = -1;
-			int end = -1;
-			for (int i = 0; i < numberOfSong; i++) {
-
-				// Lấy số kết quả trả về và keyword search
-				if (i == 0) {
-					start = rawSong[i].indexOf(KEYWORD_START)
-							+ KEYWORD_START.length();
-					end = rawSong[i].indexOf(KEYWORD_END);
-					keyword = rawSong[i].substring(start, end);
-
-					start = rawSong[i].indexOf(RESULT_START)
-							+ RESULT_START.length();
-					end = rawSong[i].indexOf(RESULT_END);
-					numberOfResult = rawSong[i].substring(start, end);
-					continue;
-				}
-
-				// Lấy id của bài hát
-				start = rawSong[i].indexOf(ID) - 8;
-				end = start + 8;
-				if (start == -1) {
-					break;
-				} else {
-					id = rawSong[i].substring(start, end);
-				}
-
-				// Lấy tên bài hát
-				start = rawSong[i].indexOf(NAME_START) + NAME_START.length();
-				end = rawSong[i].indexOf(NAME_END);
-				name = rawSong[i].substring(start, end);
-
-				// Lấy tên nghệ sĩ
-				start = rawSong[i].indexOf(ARTIST_START)
-						+ ARTIST_START.length();
-				end = rawSong[i].indexOf(ARTIST_END);
-				artist = rawSong[i].substring(start, end);
-
-				// Lấy số lượt nghe
-				start = rawSong[i].indexOf(LISTEN_START)
-						+ LISTEN_START.length();
-				end = rawSong[i].indexOf(LISTEN_END);
-				numberOfListen = rawSong[i].substring(start, end);
-
-				Song song = new Song();
-				song.setId(id);
-				song.setTitle(name);
-				song.setArtist(artist);
-				song.setNumberOfListen(numberOfListen);
-				listSong.add(song);
-			}
-
-		} catch (UnsupportedEncodingException ue) {
-			ue.printStackTrace();
-		} catch (HttpException he) {
-			he.printStackTrace();
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
+		// Retrieve song info
+		List<Song> listSong = retrieveSongInfo(doc);
+		
+		// Select total song
+		String total = doc.select("div.item-search > h3.title-sub").get(0).text();
+		
+		// Set data to display
 		model.addAttribute("listSong", listSong);
-		model.addAttribute("songSearchParam", new SongSearchParam());
-		model.addAttribute("keyword", keyword);
-		model.addAttribute("numberOfResult", numberOfResult);
-
+		model.addAttribute("keyword", songSearchParam.getQ());
+		model.addAttribute("total", total);
+		
 		return "music/result";
+	}
+
+	// **********
+	/**
+	 * Private method
+	 * 
+	 * @throws IOException
+	 * @throws SystemException
+	 */
+	// **********
+
+	private String getSongIdFromUrl(String url) {
+		if (url == null || "".equals(url)) {
+			return null;
+		}
+		int start = url.lastIndexOf("/");
+		int end = url.lastIndexOf(".");
+
+		return (start == -1 || end == -1) ? null : url
+				.substring(start + 1, end);
+	}
+
+	private List<Song> retrieveSongInfo(Document doc) {
+		List<Song> listSong = null;
+
+		// Select all a tag within div tag and href start with /bai-hat/
+		Elements songUrls = doc.select("div.obj-inside.not-img > a[href^=/bai-hat/]");
+		// Select all h2 tag within div tag and have class title-song
+		Elements titles = doc.select("div.obj-inside.not-img > h2.title-song.ellipsis-2");
+		// Select all h3 tag within div tag and have class title-sub
+		Elements artists = doc.select("div.obj-inside.not-img > h3.title-sub");
+		// Select all span tag within div tag and have class nu
+		Elements listens = doc.select("div.obj-inside.not-img > span.nu");
+		
+		int songNum = 0;
+		if (songUrls == null || songUrls.size() == 0) {
+			return null;
+		} else {
+			listSong = new ArrayList<Song>();
+			songNum = songUrls.size();
+		}
+		
+		String songId = null;
+		String title = null;
+		String artist = null;
+		String listen = null;
+		
+		Element songUrl = null;
+		Element titleEle = null;
+		Element artistEle = null;
+		Element listenEle = null;
+		
+		for (int i = 0; i < songNum; i++) {
+			songUrl = songUrls.get(i);
+			titleEle = titles.get(i);
+			artistEle = artists.get(i);
+			listenEle = listens.get(i);
+			
+			songId = getSongIdFromUrl(songUrl.attr("href"));
+			title = titleEle.text();
+			artist = artistEle.text();
+			listen = listenEle.text();
+			
+			Song song = new Song();
+			song.setId(songId);
+			song.setTitle(title);
+			song.setArtist(artist);
+			song.setListen(listen);
+			
+			listSong.add(song);
+		}
+
+		return listSong;
+	}
+
+	private Document requestSearch(String keyword) throws SystemException {
+		Document document = null;
+		String url = null;
+		try {
+			String param = "?q=" + URLEncoder.encode(keyword, "UTF-8");
+			url = MusicMP3Enum.HOST.getText() + MusicMP3Enum.SEARCH.getText()
+					+ param;
+			document = Jsoup.connect(url).get();
+		} catch (IOException e) {
+			throw new SystemException("Can't request to url: " + url, e);
+		}
+		return document;
 	}
 }
